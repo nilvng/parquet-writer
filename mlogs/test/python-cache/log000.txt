@@ -1,5 +1,0 @@
-{"time_ms": 1625561507701, "message": "6"}
-{"time_ms": 1625561510236, "message": "6"}
-{"time_ms": 1625561515389, "message": "5"}
-{"time_ms": 1625561519060, "message": "10"}
-{"time_ms": 1625561534245, "greeting": 1}
