@@ -16,7 +16,7 @@ class Parquet_logger():
         logging.info("Log interval= " + str(TIME_INTERVAL))
 
     def __flushlogs(self,fo):
-        """ confirm writing buffer to disk """
+        """ release buffer to disk """
         fo.flush()
         os.fsync(fo.fileno())
     
@@ -30,11 +30,13 @@ class Parquet_logger():
         """close all files of every topics after writing to each?"""
         for key in self.topics:
             pwriter=self.topics[key][3]
-            #if not pwriter.closed:
-            pwriter.close()
+            fo=self.topics[key][4]
+            if not fo.closed:
+                pwriter.close()
+                fo.close()
             logging.debug("parquet size: " + str(os.path.getsize(self.topics[key][1]) ))
 
-    def write(self, data, writer):
+    def write(self, data, writer, fo):
         """ simply write any data to file - fo with writer if any """
         try:
             writer.write_table(data) # write to txt file
@@ -42,7 +44,7 @@ class Parquet_logger():
             logging.error("Error on data: %s" % str(e))
             return False
 
-        #self.__flushlogs(fo)
+        self.__flushlogs(fo)
 
     def create_log_file(self,dir,topic,schema,fo="",count=0):
         """ create log file with unique filename, and at specific dir"""
@@ -57,20 +59,21 @@ class Parquet_logger():
         except:
             pass
         filename=dir+"/"+filename
-        logging.info("creating log file")
+        logging.info("creating log file: " + filename)
 
          # close previous log file
         if count==0:
             pass
         else:
-            pass
+            fo.close()
         
+        fo=open(filename, 'wb')
         count+=1
          # TODO: parquet writer here with column params is the schema read somewhere e.g. csv
-        writer = pq.ParquetWriter(filename,schema)
+        writer = pq.ParquetWriter(fo,schema)
         
-        self.topics[topic]=[dir,filename,count,writer]
-        return writer
+        self.topics[topic]=[dir,filename,count,writer,fo]
+        return (fo, writer)
 
     def generate_file_name(self,dir):
         return dir + "/" + "logs.parquet"
@@ -97,9 +100,6 @@ class Parquet_logger():
         outf = self.generate_file_name(dir=dir)
         pq.write_table(msg_table, outf)
 
-    def generate_same(self,dir):
-        return dir + "/" + "logs.parquet"
-
     def log_message(self,data,topic=""):
         #columns=0 #needed as json data causes error
         # if topic=="":
@@ -108,7 +108,8 @@ class Parquet_logger():
         
         msg_df = pd.DataFrame(data=data)
         msg_table = pa.Table.from_pandas(msg_df,preserve_index=False)# convert dict to json
-        
+        schema =msg_table.schema
+
         dir=self.log_root_dir
 
         if not topic in self.topics:
@@ -117,7 +118,7 @@ class Parquet_logger():
                 # recursively create dir
                 dir+="/"+t
                 self.create_log_dir(dir)
-            self.create_log_file(dir,topic,msg_table.schema,fo="",count=0)
+            self.create_log_file(dir,topic,schema=schema,fo="",count=0)
         else:
             dir=self.log_root_dir + "/"+ topic
             file=self.topics[topic][2]
@@ -129,4 +130,5 @@ class Parquet_logger():
             #     writer=self.create_log_file(dir,topic,columns,fo,count)
     
         writer=self.topics[topic][3] #retrieve pointer
-        self.write(msg_table,writer)
+        fo=self.topics[topic][4]
+        self.write(data=msg_table,writer=writer,fo=fo)
