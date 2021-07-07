@@ -122,7 +122,7 @@ class Parquet_logger():
         else:
             dir=self.log_root_dir + "/"+ topic
             file=self.topics[topic][2]
-            # logging.debug("check against max size: " + str(os.path.getsize(self.topics[topic][1]) ))
+            #logging.debug("check against max size: " + str(os.stat(file).st_size))
             # if os.stat(file).st_size>self.MAX_LOG_SIZE: # exceed max log file size
             #     writer=self.topics[topic][3]
             #     writer.close()

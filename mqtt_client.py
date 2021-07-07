@@ -90,6 +90,7 @@ def message_handler(client,msg,topic):
         2.b/ if it is not json then append it to key "message"
      """
     data=collections.OrderedDict()
+    
     # Generate metadata for the message
     tnow=time.time()
     #data["time_ms"]=int(tnow*1000)
@@ -100,6 +101,7 @@ def message_handler(client,msg,topic):
     try:
         msg_json=json.loads(msg)# convert to Dict before saving
     except:
+        msg_json=msg
         logging.warning("message is not json")
 
     logging.info("queuing message..")

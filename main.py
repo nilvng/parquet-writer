@@ -13,26 +13,28 @@ import parquet_logger
 msg_queue = deque() # cache all messages received from the broker
 
 options=command.options
+def job_parquetWriter(log):
+    # measure the amount of message we gonna write, which is the current size of queue
+    pop_at = len(msg_queue)
+    logging.info("I'm working on queue length: " + str(pop_at))
+    
+    # pop and write each message to its corresponding file
+    for _ in range(pop_at):
+        jdata = msg_queue.popleft()
+        topic=jdata["topic"]
+        del jdata["topic"]
+        data = [jdata]
+        if data is None:
+            continue
+        log.log_message(data,topic=topic)
 
 def log_worker():
     """runs in own thread to log data from queue"""
     log=parquet_logger.Parquet_logger(log_dir=log_dir,MAX_LOG_SIZE=options["log_max_size"])
     while Log_worker_flag:
-        #print("worker running ",csv_flag)
-        time.sleep(0.01)
-        #time.sleep(2)
+        time.sleep(15)
         while msg_queue:
-            jdata = msg_queue.popleft()
-            topic=jdata["topic"]
-            del jdata["topic"]
-            data = [jdata]
-            if data is None:
-                continue
-            log.log_message(data,topic=topic)
-            # if csv_flag:
-            #      log.log_data(results)
-            # else:
-            #     log.log_json(results)
+            job_parquetWriter(log)
     log.close_file()
 
 # === MAIN PROGRAM ===
