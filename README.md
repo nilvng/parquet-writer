@@ -7,6 +7,7 @@ Valid command line Options:
 -p <port>
 -t <topic>
 -q <QOS>
+-L <interval's length>
 -v <verbose>
 -d logging debug
 -n <Client ID or Name>
@@ -28,9 +29,13 @@ Specify broker and multiple topics
 
     python main.py -h 192.168.1.157 -t sensors/# -t  home/#
 
-Specify the client name used by the logger : data-logger
+Specify the username and password: 
 
-    python main.py -h 192.168.1.157 -t sensors/# -n data-logger
+    python main.py -h 192.168.1.157  -u hpt -P 123456 -t sensors/#
+
+Specify the time interval (second unit): 
+
+    python main.py -h 192.168.1.157 -u hpt -P 123456 -t sensors/# -L 60
 
 Specify the log directory : mylogs
 
