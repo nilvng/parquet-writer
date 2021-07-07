@@ -2,9 +2,12 @@
 
 mqttclient_log=False #MQTT client logs showing messages
 Log_worker_flag=True
+
 import paho.mqtt.client as mqtt
 import threading
 from collections import deque
+import schedule
+
 from command import command_input
 import command
 from mqtt_client import *
@@ -14,23 +17,29 @@ msg_queue = deque() # cache all messages received from the broker
 
 options=command.options
 
+def job_parquetWriter(log):
+    # measure the amount of message we gonna write, which is the current size of queue
+    pop_at = len(msg_queue)
+    logging.info("I'm working on queue length: " + str(pop_at))
+    
+    # pop and write each message to its corresponding file
+    for _ in range(pop_at):
+        jdata = msg_queue.popleft()
+        topic=jdata["topic"]
+        del jdata["topic"]
+        data = [jdata]
+        if data is None:
+            continue
+        log.log_message(data,topic=topic)
+    
+    log.close_file()
+
 def log_worker():
     """runs in own thread to log data from queue"""
-    log=parquet_logger.Parquet_logger(log_dir=log_dir,MAX_LOG_SIZE=options["log_max_size"])
     while Log_worker_flag:
-        #print("worker running ",csv_flag)
-        time.sleep(0.01)
-        #time.sleep(2)
+        time.sleep(1)
         while msg_queue:
-            data = msg_queue.popleft()
-            if data is None:
-                continue
-            log.log_data(data)
-            # if csv_flag:
-            #      log.log_data(results)
-            # else:
-            #     log.log_json(results)
-    log.close_file()
+            schedule.run_pending()
 
 # === MAIN PROGRAM ===
 if __name__ == "__main__" and len(sys.argv)>=2:
@@ -79,6 +88,8 @@ client.q=msg_queue #make queue available as part of client
     
 ##
 print("Log Directory =",log_dir)
+print("Log Interval =",options["interval"])
+
 #TODO: enable writing with schema file
 # if options["header_flag"]: #
 
@@ -89,11 +100,8 @@ print("Log Directory =",log_dir)
 #     print("getting headers from ",file_name)
 
 # Enable thread for logging messages
-Log_worker_flag=True
-t = threading.Thread(target=log_worker) #start logger
-t.start() #start logging thread
+
 ###
-logging.debug(client.broker + " / " + str(client.port))
 try:
     res=client.connect(client.broker,client.port)      #connect to broker
     logging.info("connecting to broker " + client.broker)
@@ -103,7 +111,14 @@ except:
     logging.warning("connection failed")
     client.bad_count +=1
     client.bad_connection_flag=True #old clients use this
-#loop and wait until interrupted   
+#loop and wait until interrupted 
+
+logger=parquet_logger.Parquet_logger(log_dir=log_dir,MAX_LOG_SIZE=options["log_max_size"])
+Log_worker_flag=True
+t = threading.Thread(target=log_worker) #start logger
+t.start() #start logging thread
+schedule.every(options["interval"]).seconds.do(job_parquetWriter,logger)
+
 try:
     while True:
         time.sleep(1)
@@ -114,5 +129,6 @@ except KeyboardInterrupt:
 
 client.loop_stop() #start loop
 Log_worker_flag=False #stop logging thread
+logger.close_file()
 time.sleep(3)
 
