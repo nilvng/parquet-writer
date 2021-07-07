@@ -18,8 +18,8 @@ options["storechangesonly"]=True
 options["keepalive"]=60
 options["loglevel"]="DEBUG"
 options["log_dir"]="mlogs"
-options["log_max_size"]=2
-options["number_logs"]=0
+options["log_max_size"]=10000
+options["interval"]=20
 options["JSON"]=True
 options["csv"]=False
 options["header_file"]="data.csv"
@@ -33,10 +33,10 @@ def command_input(options={}):
     valid_options=" --help <help> -h or -b <broker> -p <port>-t <topic> -q QOS -v <verbose> -h <help>\
  -d logging debug  -n Client ID or Name -u Username -P Password -s <store all data>\
 -l <log directory default= mlogs> -r <Record size bytes default=10000> -f <filename>\
--L <number of log files default= unlimited> -j <log in JSON format> -c <log in csvformat>"
+-I <length of an interval, default=20 sec> -j <log in JSON format> -c <log in csvformat>"
     print_options_flag=False
     try:
-      opts, args = getopt.getopt(sys.argv[1:],"h:b:jcsdk:p:t:q:l:L:vn:u:P:l:r:f:")
+      opts, args = getopt.getopt(sys.argv[1:],"h:b:jcsdk:p:t:q:l:I:vn:u:P:l:r:f:")
     except getopt.GetoptError:
       print (sys.argv[0],valid_options)
       sys.exit(2)
@@ -74,8 +74,8 @@ def command_input(options={}):
             options["log_dir"]=str(arg)
         elif opt =="-r":
             options["log_max_size"]=int(arg)
-        elif opt =="-L":
-            options["number_logs"]=int(arg)
+        elif opt =="-I":
+            options["interval"]=int(arg)
         elif opt =="-j":
             options["JSON"]=True
         elif opt =="-c":

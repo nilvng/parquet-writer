@@ -7,13 +7,11 @@ class Parquet_logger():
 
     def __init__(self,log_dir='ologs',MAX_LOG_SIZE=1000,TIME_INTERVAL=10):
         self.MAX_LOG_SIZE = MAX_LOG_SIZE
-        self.TIME_INTERVAL = TIME_INTERVAL
         self.log_root_dir = log_dir
-        self.topics={} # key = topic name; values=[fo,dir,current filename,count,writer]
+        self.topics={} # key = topic name; values=[dir,current filename,count,writer,fo]
         
         self.create_log_dir(self.log_root_dir) # create the base dir for the root topic
-        logging.info("Log size= " + str(MAX_LOG_SIZE))
-        logging.info("Log interval= " + str(TIME_INTERVAL))
+
 
     def __flushlogs(self,fo):
         """ release buffer to disk """
@@ -80,9 +78,12 @@ class Parquet_logger():
 
     def log_data(self,data,topic=""):
         """
-        write data to parquet using pyarrow, so we need to convert data to dataframe and then table and then we can write all in one
-        data: array of dict
-        topic: 
+        write data to parquet using pyarrow, 
+        so 
+        1. we need to convert data to dataframe and then table and 
+        2. then we can write all in one
+        data: array of dict e.g. [message1,message2]
+        topic: mqtt topic will be the directory of the message
         """
         dir=self.log_root_dir + "/"+ topic
 
@@ -101,17 +102,19 @@ class Parquet_logger():
         pq.write_table(msg_table, outf)
 
     def log_message(self,data,topic=""):
-        #columns=0 #needed as json data causes error
-        # if topic=="":
-        #     topic=data["topic"]
-        #     del data["topic"]
-        
+        """
+        Write a MQTT message to file
+        data: [message]
+        topic: MQTT topic
+        """
+        # Preprocess message before actually write it to file
         msg_df = pd.DataFrame(data=data)
         msg_table = pa.Table.from_pandas(msg_df,preserve_index=False)# convert dict to json
         schema =msg_table.schema
 
         dir=self.log_root_dir
 
+        # Make sure file and directory is ready to be written
         if not topic in self.topics:
             s_topics=topic.split('/')
             for t in s_topics:
@@ -121,14 +124,13 @@ class Parquet_logger():
             self.create_log_file(dir,topic,schema=schema,fo="",count=0)
         else:
             dir=self.log_root_dir + "/"+ topic
-            file=self.topics[topic][2]
+            fo=self.topics[topic][4]
             #logging.debug("check against max size: " + str(os.stat(file).st_size))
-            # if os.stat(file).st_size>self.MAX_LOG_SIZE: # exceed max log file size
-            #     writer=self.topics[topic][3]
-            #     writer.close()
-            #     count=self.topics[topic][2]
-            #     writer=self.create_log_file(dir,topic,columns,fo,count)
-    
+            if fo.closed: # exceed max log file size
+                count=self.topics[topic][2]
+                writer=self.create_log_file(dir,topic,schema=schema,fo=fo,count=count)
+
+        # Actually write to file
         writer=self.topics[topic][3] #retrieve pointer
         fo=self.topics[topic][4]
         self.write(data=msg_table,writer=writer,fo=fo)
