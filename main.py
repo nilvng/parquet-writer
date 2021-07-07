@@ -22,10 +22,13 @@ def log_worker():
         time.sleep(0.01)
         #time.sleep(2)
         while msg_queue:
-            data = msg_queue.popleft()
+            jdata = msg_queue.popleft()
+            topic=jdata["topic"]
+            del jdata["topic"]
+            data = [jdata]
             if data is None:
                 continue
-            log.log_data(data)
+            log.log_message(data,topic=topic)
             # if csv_flag:
             #      log.log_data(results)
             # else:

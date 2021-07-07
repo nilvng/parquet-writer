@@ -84,10 +84,15 @@ def on_message(client,userdata, msg):
     logging.debug("message received "+ m_decode)
     
 def message_handler(client,msg,topic):
+    """ 
+        1/ append the message to dict to have metadata:time and topic
+        2/ try to convert to json so that we can extract its field to the new dict
+        2.b/ if it is not json then append it to key "message"
+     """
     data=collections.OrderedDict()
     # Generate metadata for the message
     tnow=time.time()
-    data["time_ms"]=int(tnow*1000)
+    #data["time_ms"]=int(tnow*1000)
     #data["time"]=currentTime()
     data["topic"]=topic
 
@@ -95,17 +100,24 @@ def message_handler(client,msg,topic):
     try:
         msg_json=json.loads(msg)# convert to Dict before saving
     except:
-        logging.info("message is not json format")
+        logging.warning("message is not json")
 
+    logging.info("queuing message..")
     if isinstance(msg_json,dict): # json.loads also parse int
         keys=msg_json.keys()
         for key in keys:
             data[key]=msg_json[key]
-    else:             
+    else:  
+        if isinstance(msg_json,list):
+            if (isinstance(msg_json[0],dict)):
+                for e in msg_json:
+                    e["topic"]=topic
+                    client.q.append(e)
+                return
+
         data["message"]=msg
 
     client.q.append(data)
-    logging.info("message appended")
     #TODO: enable store changes only
 
     # if command.options["storechangesonly"]:
