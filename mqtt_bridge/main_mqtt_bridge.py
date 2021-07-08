@@ -12,7 +12,6 @@ import schedule
 from command import command_input
 import command
 from mqtt_client import *
-import parquet_logger
 
 redis_conn = redis.Redis()
 
@@ -65,6 +64,5 @@ except KeyboardInterrupt:
     print("interrrupted by keyboard")
 
 client.loop_stop() #start loop
-logger.close_file()
 time.sleep(3)
 

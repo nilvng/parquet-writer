@@ -116,7 +116,7 @@ def message_handler(client,msg,topic):
                 for e in msg_json:
                     e["topic"]=topic
                     save_message(client,e)
-                    return
+                return
 
         else:
             data["message"]=msg
