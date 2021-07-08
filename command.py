@@ -12,7 +12,6 @@ options["password"]=""
 options["broker"]="127.0.0.1"
 options["port"]=1883
 options["message_queue_name"]= "msg_queue"
-options["verbose"]=True
 options["cname"]=""
 options["topics"]=[("",0)]
 options["storechangesonly"]=True
@@ -21,32 +20,27 @@ options["loglevel"]="DEBUG"
 options["log_dir"]="mlogs"
 options["log_max_size"]=10000
 options["interval"]=10
-options["JSON"]=True
-options["csv"]=False
-options["header_file"]="data.csv"
-options["fname"]="data.csv"
 options["header_flag"]=False
 
 def command_input(options={}):
     topics_in=[]
     qos_in=[]
 
-    valid_options=" --help <help> -h or -b <broker> -p <port>-t <topic> -q QOS -v <verbose> -h <help>\
- -d logging debug  -n Client ID or Name -u Username -P Password -s <store all data>\
--l <log directory default= mlogs> -r <Record size bytes default=10000> -f <filename>\
--I <length of an interval, default=20 sec> -j <log in JSON format> -c <log in csvformat>"
+    valid_options="-b <broker> -p <port>-t <topic> -q QOS -h <help>\
+-n Client ID or Name -u Username -P Password -s <store all data>\
+-l <log directory default= mlogs> -r <Record size bytes default=10000> -f <redis_key_name>\
+-d <logging_level>\
+-I <length of an interval, default=20 sec>"
     print_options_flag=False
     try:
-      opts, args = getopt.getopt(sys.argv[1:],"h:b:jcsdk:p:t:q:l:I:vn:u:P:l:r:f:")
+      opts, args = getopt.getopt(sys.argv[1:],"b:sdk:p:t:q:l:I:n:u:P:l:r:f:")
     except getopt.GetoptError:
       print (sys.argv[0],valid_options)
       sys.exit(2)
     qos=0
 
     for opt, arg in opts:
-        if opt == '-h':
-             options["broker"] = str(arg)
-        elif opt == "-b":
+        if opt == "-b":
              options["broker"] = str(arg)
         elif opt == "-k":
              options["keepalive"] = int(arg)
@@ -58,29 +52,18 @@ def command_input(options={}):
              qos_in.append(int(arg))
         elif opt =="-n":
              options["cname"]=arg
-        elif opt =="-f":
-             options["fname"]=arg
-             options["header_flag"]=True
         elif opt =="-d":
             options["loglevel"]="DEBUG"
         elif opt == "-P":
              options["password"] = str(arg)
         elif opt == "-u":
              options["username"] = str(arg)
-        elif opt =="-v":
-            options["verbose"]=True
         elif opt =="-s":
             options["storechangesonly"]=False
         elif opt =="-l":
             options["log_dir"]=str(arg)
-        elif opt =="-r":
-            options["log_max_size"]=int(arg)
         elif opt =="-I":
             options["interval"]=int(arg)
-        elif opt =="-j":
-            options["JSON"]=True
-        elif opt =="-c":
-            options["csv"]=True
 
 
     lqos=len(qos_in)
