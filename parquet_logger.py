@@ -3,11 +3,13 @@ import pyarrow.parquet as pq
 import pyarrow as pa
 import pandas as pd
 
+from datetime import datetime
 class Parquet_logger():
 
-    def __init__(self,log_dir='ologs',MAX_LOG_SIZE=1000,TIME_INTERVAL=10):
+    def __init__(self, log_dir='ologs', MAX_LOG_SIZE=1000):
         self.MAX_LOG_SIZE = MAX_LOG_SIZE
         self.log_root_dir = log_dir
+        
         self.topics={} # key = topic name; values=[dir,current filename,count,writer,fo]
         
         self.create_log_dir(self.log_root_dir) # create the base dir for the root topic
@@ -27,8 +29,8 @@ class Parquet_logger():
     def close_file(self):
         """close all files of every topics after writing to each?"""
         for key in self.topics:
-            pwriter=self.topics[key][3]
-            fo=self.topics[key][4]
+            pwriter=self.topics[key][2]
+            fo=self.topics[key][3]
             if not fo.closed:
                 pwriter.close()
                 fo.close()
@@ -44,12 +46,12 @@ class Parquet_logger():
 
         self.__flushlogs(fo)
 
-    def create_log_file(self,dir,topic,schema,fo="",count=0):
+    def create_log_file(self,dir,topic,schema,fo=""):
         """ create log file with unique filename, and at specific dir"""
-        log_numbr="{0:003d}".format(count)
+        tstmp = datetime.now().strftime(r"%Y%m%d_%H%M%S")
         #TODO: change to parquet
         #filename = "log"+""+".parquet"
-        filename = "log"+str(log_numbr)+".parquet"
+        filename = "log"+str(tstmp)+".parquet"
         # remove outdated file with that filename
         try:
             os.stat(filename)
@@ -60,17 +62,14 @@ class Parquet_logger():
         logging.info("creating log file: " + filename)
 
          # close previous log file
-        if count==0:
-            pass
-        else:
+        if fo != "" and not fo.closed:
             fo.close()
         
         fo=open(filename, 'wb')
-        count+=1
-         # TODO: parquet writer here with column params is the schema read somewhere e.g. csv
+         # parquet writer here with schema
         writer = pq.ParquetWriter(fo,schema)
         
-        self.topics[topic]=[dir,filename,count,writer,fo]
+        self.topics[topic]=[dir,filename,writer,fo]
         return (fo, writer)
 
     def generate_file_name(self,dir):
@@ -121,16 +120,15 @@ class Parquet_logger():
                 # recursively create dir
                 dir+="/"+t
                 self.create_log_dir(dir)
-            self.create_log_file(dir,topic,schema=schema,fo="",count=0)
+            self.create_log_file(dir,topic,schema=schema)
         else:
             dir=self.log_root_dir + "/"+ topic
-            fo=self.topics[topic][4]
+            fo=self.topics[topic][3]
             #logging.debug("check against max size: " + str(os.stat(file).st_size))
             if fo.closed: # exceed max log file size
-                count=self.topics[topic][2]
-                writer=self.create_log_file(dir,topic,schema=schema,fo=fo,count=count)
+                writer=self.create_log_file(dir,topic,schema=schema,fo=fo)
 
         # Actually write to file
-        writer=self.topics[topic][3] #retrieve pointer
-        fo=self.topics[topic][4]
+        writer=self.topics[topic][2] #retrieve pointer
+        fo=self.topics[topic][3]
         self.write(data=msg_table,writer=writer,fo=fo)

@@ -5,6 +5,8 @@ Log_worker_flag=True
 
 import paho.mqtt.client as mqtt
 import threading
+
+import redis
 from collections import deque
 import schedule
 
@@ -15,21 +17,36 @@ import parquet_logger
 
 msg_queue = deque() # cache all messages received from the broker
 
-options=command.options
+redis_conn = redis.Redis()
 
-def job_parquetWriter(log):
+options=command.options
+def multi_lpop(conn, keyname,count):
+  p = conn.pipeline()
+  p.multi()
+  p.lrange(keyname, 0, count - 1)
+  p.ltrim(keyname, count, -1)
+  return p.execute()
+
+def job_parquetWriter(log,conn,keyname):
     # measure the amount of message we gonna write, which is the current size of queue
-    pop_at = len(msg_queue)
+    pop_at = conn.llen(keyname)
+
     logging.info("I'm working on queue length: " + str(pop_at))
     
+    if pop_at <= 0:
+        return
+
+    msgs = multi_lpop(conn,keyname,pop_at)[0]
     # pop and write each message to its corresponding file
-    for _ in range(pop_at):
-        jdata = msg_queue.popleft()
+    for m in msgs:
+        jdata = json.loads(m)
         topic=jdata["topic"]
         del jdata["topic"]
+
         data = [jdata]
         if data is None:
             continue
+
         log.log_message(data,topic=topic)
     
     log.close_file()
@@ -38,8 +55,7 @@ def log_worker():
     """runs in own thread to log data from queue"""
     while Log_worker_flag:
         time.sleep(1)
-        while msg_queue:
-            schedule.run_pending()
+        schedule.run_pending()
 
 # === MAIN PROGRAM ===
 if __name__ == "__main__" and len(sys.argv)>=2:
@@ -70,7 +86,7 @@ port=options['port'],
 topics=options['topics']) #create and initialise client object
 
 #client.last_message=dict()
-client.q=msg_queue #make queue available as part of client
+client.redis_conn=redis_conn #make queue available as part of client
 
 # TODO: extra config
 # if options["JSON"]: #
@@ -117,7 +133,7 @@ logger=parquet_logger.Parquet_logger(log_dir=log_dir,MAX_LOG_SIZE=options["log_m
 Log_worker_flag=True
 t = threading.Thread(target=log_worker) #start logger
 t.start() #start logging thread
-schedule.every(options["interval"]).seconds.do(job_parquetWriter,logger)
+schedule.every(options["interval"]).seconds.do(job_parquetWriter,log=logger,conn=redis_conn,keyname=options["message_queue_name"])
 
 try:
     while True:

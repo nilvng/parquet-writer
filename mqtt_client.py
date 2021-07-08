@@ -6,6 +6,8 @@ import sys, getopt,random
 import logging
 import collections
 
+import command
+
 class MQTTClient(mqtt.Client):#extend the paho client class
    run_flag=False #global flag used in multi loop
    def __init__(self,cname,**kwargs):
@@ -114,12 +116,12 @@ def message_handler(client,msg,topic):
             if (isinstance(msg_json[0],dict)):
                 for e in msg_json:
                     e["topic"]=topic
-                    client.q.append(e)
-                return
+                    save_message(client,e)
+                    return
 
-        data["message"]=msg
-
-    client.q.append(data)
+        else:
+            data["message"]=msg
+    save_message(client,data)
     #TODO: enable store changes only
 
     # if command.options["storechangesonly"]:
@@ -127,14 +129,11 @@ def message_handler(client,msg,topic):
     #         client.q.put(data) #put messages on queue
     # else:
     #     client.q.put(data) #put messages on queue
-
-def has_changed_test(client,topic,msg):
-    #used when testing the data log tester
-    if topic in client.last_message:
-        if client.last_message[topic]["status"]==msg["status"]:
-            return False
-    client.last_message[topic]=msg
-    return True
+def save_message(client,data):
+    str_data = json.dumps(data)
+    keyname = command.options["message_queue_name"]
+    client.redis_conn.lpush(keyname,str_data)
+    logging.debug(f"done {str_data} saved to Redis")
     
 def has_changed(client,topic,msg):
     #print("has changed ",options["testmode"])
