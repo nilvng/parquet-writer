@@ -6,7 +6,7 @@ options=dict()
 ##EDIT HERE ###############
 options["log_dir"]="mlogs"
 options["log_max_size"]=10000
-options["redis_key"]="ms_queue"
+options["redis_key"]="msg_queue"
 
 def command_input(options={}):
     topics_in=[]

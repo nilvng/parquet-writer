@@ -11,22 +11,22 @@ import command
 class MQTTClient(mqtt.Client):#extend the paho client class
    run_flag=False #global flag used in multi loop
    def __init__(self,cname,**kwargs):
-      super(MQTTClient, self).__init__(cname,**kwargs)
-      self.topic_ack=[] #used to track subscribed topics
-      self.subscribe_flag=False
-      self.bad_connection_flag=False
-      self.bad_count=0
-      self.count=0
-      self.connected_flag=False
-      self.connect_flag=False #used in multi loop
-      self.sub_topic=""
-      self.sub_topics=[] #multiple topics
-      self.sub_qos=0
-      self.broker=""
-      self.port=1883
-      self.keepalive=60
-      self.cname=""
-      self.delay=10 #retry interval
+        super(MQTTClient, self).__init__(cname,**kwargs)
+        self.topic_ack=[] #used to track subscribed topics
+        self.subscribe_flag=False
+        self.connected_flag=False
+        self.bad_connection_flag=False
+        self.bad_count=0
+        self.count=0
+        self.connect_flag=False #used in multi loop
+        self.sub_topic=""
+        self.sub_topics=[] #multiple topics
+        self.sub_qos=0
+        self.broker=""
+        self.port=1883
+        self.keepalive=60
+        self.cname=""
+        self.delay=10 #retry interval
 
 def initialise_clients(cname,mqttclient_log=False,cleansession=True,flags=""):
     #flags set
@@ -50,6 +50,7 @@ def initialise_clients(cname,mqttclient_log=False,cleansession=True,flags="",\
     client.sub_topics=topics
     client.broker=broker
     client.port=port
+
     return client
 
 def on_connect(client, userdata, flags, rc):
@@ -61,22 +62,26 @@ def on_connect(client, userdata, flags, rc):
     +str(rc))
 
    if rc==0:
-      client.connected_flag=True #old clients use this
-      client.bad_connection_flag=False
-      if client.sub_topic!="": #single topic
+        client.connected_flag=True #old clients use this
+        client.bad_connection_flag=False
+        if client.sub_topic!="": #single topic
           logging.info("subscribing "+str(client.sub_topic))
           topic=client.sub_topic
           if client.sub_qos!=0:
               qos=client.sub_qos
               client.subscribe(topic,qos)
-      elif client.sub_topics!="":
-        client.subscribe(client.sub_topics)
-        #logging.info("Connected and subscribed to "+ " ".join(client.sub_topics))
+        elif client.sub_topics!="":
+            client.subscribe(client.sub_topics)
+            #logging.info("Connected and subscribed to "+ " ".join(client.sub_topics))
+        else:
+            logging.warning("Mising subscribed topics!")
+
 
    else:
-     client.bad_connection_flag=True #
-     client.bad_count +=1
-     client.connected_flag=False #
+        print("Bad connection Returned code=",rc)
+        client.bad_connection_flag=True #
+        client.bad_count +=1
+        client.connected_flag=False #
 
 def on_message(client,userdata, msg):
     topic=msg.topic

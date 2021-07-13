@@ -33,7 +33,7 @@ else:
 
 logging.basicConfig(level=options["loglevel"])
 
-print("logging level ",options["loglevel"])
+#print("logging level ",options["loglevel"])
 
 logging.info("creating client name:"+cname)
 client=initialise_clients(cname,mqttclient_log,cleansession=False,
@@ -45,16 +45,24 @@ topics=options['topics']) #create and initialise client object
 
 client.redis_conn=redis_conn #make queue available as part of client
 
-try:
-    res=client.connect(client.broker,client.port)      #connect to broker
-    logging.info("connecting to broker " + client.broker)
-    client.loop_start() #start loop
+#try:
+res=client.connect(client.broker,client.port)      #connect to broker
+logging.info("connecting to broker " + client.broker)
+logging.info("connecting to port " + str(client.port))
+client.loop_start() #start loop
 
-except:
-    logging.warning("connection failed")
-    client.bad_count +=1
-    client.bad_connection_flag=True #old clients use this
+#except:
+#    logging.warning("connection failed")
+   
 #loop and wait until interrupted 
+
+while not client.connected_flag and not client.bad_connection_flag: #wait in loop
+    print("In wait loop")
+    time.sleep(1)
+
+if client.bad_connection_flag:
+    client.loop_stop()    #Stop loop
+    sys.exit()
 
 try:
     while True:

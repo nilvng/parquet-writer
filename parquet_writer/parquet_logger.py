@@ -108,8 +108,11 @@ class Parquet_logger():
         """
         # Preprocess message before actually write it to file
         msg_df = pd.DataFrame(data=data)
-        msg_table = pa.Table.from_pandas(msg_df,preserve_index=False)# convert dict to json
-        schema =msg_table.schema
+        msg_df = msg_df.infer_objects()
+        msg_table = pa.Table.from_pandas(msg_df,preserve_index=False).replace_schema_metadata()# convert dict to json
+        schema =msg_table.schema.remove_metadata()
+
+        #print("The schema: " + str(schema))
 
         dir=self.log_root_dir
 

@@ -43,11 +43,8 @@ def job_parquetWriter(logger,conn,keyname):
     logger.close_file()
 
 # === MAIN PROGRAM ===
-if __name__ == "__main__" and len(sys.argv)>=2:
+if __name__ == "__main__":
     options=command_input(options)
-else:
-    print("Need broker name and topics to continue.. exiting")
-    raise SystemExit(1)
 
 log_dir=options["log_dir"]
 redis_conn = redis.Redis()
