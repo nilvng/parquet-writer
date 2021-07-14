@@ -72,9 +72,6 @@ class Parquet_logger():
         self.topics[topic]=[dir,filename,writer,fo]
         return (fo, writer)
 
-    def generate_file_name(self,dir):
-        return dir + "/" + "logs.parquet"
-
     def log_data(self,data,topic=""):
         """
         write data to parquet using pyarrow, 
@@ -100,19 +97,27 @@ class Parquet_logger():
         outf = self.generate_file_name(dir=dir)
         pq.write_table(msg_table, outf)
 
-    def log_message(self,data,topic=""):
+    def log_message(self,mdata,topic=""):
         """
         Write a MQTT message to file
-        data: [message]
+        data: message
         topic: MQTT topic
         """
         # Preprocess message before actually write it to file
+        jdata = json.loads(mdata,parse_int=float)
+        if not topic:
+            topic=jdata["topic"]
+            try:
+                del jdata["topic"]
+            except KeyError e:
+                logging.error(f"Cannot find topic in received message: {mdata}")
+
+        data = [jdata]
         msg_df = pd.DataFrame(data=data)
+        
         msg_df = msg_df.infer_objects()
         msg_table = pa.Table.from_pandas(msg_df,preserve_index=False).replace_schema_metadata()# convert dict to json
         schema =msg_table.schema.remove_metadata()
-
-        #print("The schema: " + str(schema))
 
         dir=self.log_root_dir
 
@@ -127,9 +132,9 @@ class Parquet_logger():
         else:
             dir=self.log_root_dir + "/"+ topic
             fo=self.topics[topic][3]
-            #logging.debug("check against max size: " + str(os.stat(file).st_size))
-            if fo.closed: # exceed max log file size
-                writer=self.create_log_file(dir,topic,schema=schema,fo=fo)
+            # new interval or not
+            if fo.closed: 
+                fo, writer = self.create_log_file(dir,topic,schema=schema,fo=fo)
 
         # Actually write to file
         writer=self.topics[topic][2] #retrieve pointer

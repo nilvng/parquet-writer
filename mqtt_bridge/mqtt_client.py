@@ -72,7 +72,6 @@ def on_connect(client, userdata, flags, rc):
               client.subscribe(topic,qos)
         elif client.sub_topics!="":
             client.subscribe(client.sub_topics)
-            #logging.info("Connected and subscribed to "+ " ".join(client.sub_topics))
         else:
             logging.warning("Mising subscribed topics!")
 
@@ -87,6 +86,10 @@ def on_message(client,userdata, msg):
     topic=msg.topic
     
     m_decode=str(msg.payload.decode("utf-8","ignore"))
+
+    if not m_decode:
+        return
+
     logging.debug("message received "+ m_decode)
     
     message_handler(client,m_decode,topic)
@@ -97,39 +100,53 @@ def message_handler(client,msg,topic):
         2/ try to convert to json so that we can extract its field to the new dict
         2.b/ if it is not json then append it to key "message"
      """
-    data=collections.OrderedDict()
     
     # Generate metadata for the message
     tnow=time.time()
-    data["topic"]=topic
 
     # If msg is a usual json => each of its keys is column
     try:
-        msg_json=json.loads(msg)# convert to Dict before saving
-    except:
+        msg_json=json.loads(msg,parse_int=float)# convert to Dict before saving
+    except json.JSONDecodeError:
         msg_json=msg
         logging.warning("message is not json")
 
     logging.info("queuing message..")
+
     if isinstance(msg_json,dict): # json.loads also parse int
-        keys=msg_json.keys()
-        for key in keys:
-            data[key]=msg_json[key]
+        data = compose_data(mess_dict=msg_json,topic=topic)
+        save_message(client,data)
     else:  
         if isinstance(msg_json,list):
             if (isinstance(msg_json[0],dict)):
                 for e in msg_json:
-                    e["topic"]=topic
-                    save_message(client,e)
+                    data = compose_data(mess_dict=e,topic=topic)
+                    save_message(client,data)
                 return
 
         else:
-            data["message"]=msg
-    save_message(client,data)
-    #TODO: enable store changes only
+            mess_dict = {"data": msg_json}
+            data = compose_data(mess_dict,topic=topic)
+            save_message(client,data)
+    
+    logging.warning("Cannot save this msg: " + msg)
+
+def compose_data(mess_dict,topic):
+    #raw_data=collections.OrderedDict()
+    raw_data={}
+    raw_data["topic"]=topic
+
+    raw_data.update(mess_dict)
+    return {k:v for k,v in sorted(raw_data.items())}
 
 def save_message(client,data):
+    # convert nested type within data to string
+    for key in data.keys():
+            if (isinstance(data[key],(dict, list) )):
+                data[key] = str(data[key])
+    # convert data to string to save to redis
     str_data = json.dumps(data)
+
     keyname = command.options["message_queue_name"]
     client.redis_conn.lpush(keyname,str_data)
     logging.debug(f"done {str_data} saved to Redis")

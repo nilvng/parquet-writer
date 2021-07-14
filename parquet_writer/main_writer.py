@@ -6,6 +6,7 @@ from command import command_input
 import command
 import parquet_logger
 
+start_time = time.time()
 options=command.options
 
 def multi_lpop(conn, keyname,count):
@@ -18,7 +19,7 @@ def multi_lpop(conn, keyname,count):
 def job_parquetWriter(logger,conn,keyname):
     # measure the amount of message we gonna write, which is the current size of queue
     pop_at = conn.llen(keyname)
-
+    #pop_at = 10
     logging.info("I'm working on queue length: " + str(pop_at))
     
     if pop_at <= 0:
@@ -30,15 +31,7 @@ def job_parquetWriter(logger,conn,keyname):
         return
     # pop and write each message to its corresponding file
     for m in msgs:
-        jdata = json.loads(m)
-        topic=jdata["topic"]
-        del jdata["topic"]
-
-        data = [jdata]
-        if data is None:
-            continue
-
-        logger.log_message(data,topic=topic)
+        logger.log_message(mdata=m)
     
     logger.close_file()
 
@@ -51,3 +44,4 @@ redis_conn = redis.Redis()
 logger=parquet_logger.Parquet_logger(log_dir=log_dir)
 
 job_parquetWriter(logger=logger,conn=redis_conn,keyname=options["redis_key"])
+print(time.time() - start_time)
