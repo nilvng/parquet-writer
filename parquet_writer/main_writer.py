@@ -6,20 +6,32 @@ from command import command_input
 import command
 import parquet_logger
 
-start_time = time.time()
+#start_time = time.time()
 options=command.options
 
 def multi_lpop(conn, keyname,count):
-  p = conn.pipeline()
-  p.multi()
-  p.lrange(keyname, 0, count - 1)
-  p.ltrim(keyname, count, -1)
-  return p.execute()
+    p = conn.pipeline()
+    p.multi()
+    p.lrange(keyname, 0, count - 1)
+    p.ltrim(keyname, count, -1)
+    return p.execute()
+
+def get_message_size(conn,keyname):
+    """
+    Get the amount of messages the program will write
+    The amount should be sufficient to write in a given interval
+    """
+    pop_at = conn.llen(keyname)
+    max_allowed_interval = options["interval_length"] / 1.5 * 400.0
+    
+    if pop_at > max_allowed_interval:
+        return max_allowed_interval
+    
+    return pop_at
 
 def job_parquetWriter(logger,conn,keyname):
     # measure the amount of message we gonna write, which is the current size of queue
-    pop_at = conn.llen(keyname)
-    #pop_at = 10
+    pop_at = get_message_size(conn,keyname)
     logging.info("I'm working on queue length: " + str(pop_at))
     
     if pop_at <= 0:
@@ -29,8 +41,7 @@ def job_parquetWriter(logger,conn,keyname):
     msgs = multi_lpop(conn,keyname,pop_at)[0]
     if not msgs:
         return
-    # pop and write each message to its corresponding file
-    for m in msgs:
+    for m in msgs:     # pop and write each message to its corresponding file
         logger.log_message(mdata=m)
     
     logger.close_file()
@@ -43,5 +54,9 @@ log_dir=options["log_dir"]
 redis_conn = redis.Redis()
 logger=parquet_logger.Parquet_logger(log_dir=log_dir)
 
-job_parquetWriter(logger=logger,conn=redis_conn,keyname=options["redis_key"])
-print(time.time() - start_time)
+try:
+    job_parquetWriter(logger=logger,conn=redis_conn,keyname=options["redis_key"])
+except:
+    #TODO: release stucked message to redis
+    
+#print(time.time() - start_time)

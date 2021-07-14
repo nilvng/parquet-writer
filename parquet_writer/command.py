@@ -5,7 +5,7 @@ options=dict()
 
 ##EDIT HERE ###############
 options["log_dir"]="mlogs"
-options["log_max_size"]=10000
+options["interval_length"]=60.0 # unit second
 options["redis_key"]="msg_queue"
 
 def command_input(options={}):
@@ -13,7 +13,7 @@ def command_input(options={}):
     qos_in=[]
 
     valid_options="-l <log directory default= mlogs> \
--s <Record size bytes default=10000> \
+-s <Interval length unit second default=60> \
 -k <redis_key_name>"
 
     try:
@@ -28,6 +28,6 @@ def command_input(options={}):
         elif opt =="-l":
             options["log_dir"]=str(arg)
         elif opt == "s":
-            options["log_max_size"]=int(arg) # TODO: not available
+            options["interval_length"]=float(arg)
 
     return options
